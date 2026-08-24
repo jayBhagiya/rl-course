@@ -1,0 +1,62 @@
+project_dir = /path/to/rl-course
+data_dir = /path/to/large-storage/rl-course
+campaign = rl-v1
+
+universe = docker
+docker_image = pytorch/pytorch:2.2.2-cuda11.8-cudnn8-runtime
+initialdir = /path/to/home
+executable = $(project_dir)/condor/run.sh
+environment = "PROJECT_DIR=$(project_dir) DATA_DIR=$(data_dir) VENV=$(data_dir)/venvs/rl-course-cpu OMP_NUM_THREADS=2"
+should_transfer_files = NO
+getenv = HOME
++WantGPUHomeMounted = true
+
+request_cpus = 2
+request_memory = 4G
+request_disk = 5G
+request_gpus = 0
+
+job = blackjack-basic
+arguments = -m rl_course.blackjack --policy basic --episodes 10000 --seed $(seed) --output $(data_dir)/runs/$(campaign)/blackjack/basic/seed-$(seed).json
+output = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).out
+error = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).err
+log = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).log
+queue seed from (
+    21
+    42
+    87
+)
+
+job = blackjack-random
+arguments = -m rl_course.blackjack --policy random --episodes 10000 --seed $(seed) --output $(data_dir)/runs/$(campaign)/blackjack/random/seed-$(seed).json
+output = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).out
+error = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).err
+log = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).log
+queue seed from (
+    21
+    42
+    87
+)
+
+job = mountain-car
+arguments = -m rl_course.mountain_car --episodes 100 --max-steps 1000 --seed $(seed) --output $(data_dir)/runs/$(campaign)/mountain-car/seed-$(seed).json
+output = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).out
+error = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).err
+log = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).log
+queue seed from (
+    21
+    42
+    87
+)
+
+job = neural-network
+arguments = -m rl_course.neural_network --steps 2000 --seed $(seed) --output $(data_dir)/runs/$(campaign)/neural-network/seed-$(seed).json
+output = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).out
+error = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).err
+log = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).log
+queue seed from (
+    21
+    42
+    87
+)
+

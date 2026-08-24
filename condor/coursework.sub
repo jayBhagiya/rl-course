@@ -1,0 +1,93 @@
+project_dir = /path/to/rl-course
+data_dir = /path/to/large-storage/rl-course
+campaign = rl-v1
+
+universe = docker
+docker_image = pytorch/pytorch:2.2.2-cuda11.8-cudnn8-runtime
+initialdir = /path/to/home
+executable = $(project_dir)/condor/run.sh
+environment = "PROJECT_DIR=$(project_dir) DATA_DIR=$(data_dir) VENV=$(data_dir)/venvs/rl-course-cpu OMP_NUM_THREADS=2"
+should_transfer_files = NO
+getenv = HOME
++WantGPUHomeMounted = true
+
+request_cpus = 2
+request_memory = 4G
+request_disk = 5G
+request_gpus = 0
+
+job = sysadmin-random
+arguments = -m rl_course.sysadmin --policy random --episodes 1000 --horizon 100 --seed $(seed) --output $(data_dir)/runs/$(campaign)/sysadmin/random/seed-$(seed).json
+output = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).out
+error = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).err
+log = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).log
+queue seed from (
+    21
+    42
+    87
+)
+
+job = sysadmin-crashed-first
+arguments = -m rl_course.sysadmin --policy crashed-first --episodes 1000 --horizon 100 --seed $(seed) --output $(data_dir)/runs/$(campaign)/sysadmin/crashed-first/seed-$(seed).json
+output = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).out
+error = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).err
+log = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).log
+queue seed from (
+    21
+    42
+    87
+)
+
+job = frozen-lake-full
+arguments = -m rl_course.frozen_lake_mc --iterations 50 --episodes-per-iteration 100 --seed $(seed) --output $(data_dir)/runs/$(campaign)/frozen-lake/full/seed-$(seed).json
+output = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).out
+error = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).err
+log = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).log
+queue seed from (
+    21
+    42
+    87
+)
+
+job = frozen-lake-naive
+arguments = -m rl_course.frozen_lake_mc --iterations 50 --episodes-per-iteration 100 --convergence-tolerance 0.5 --min-iterations 1 --seed $(seed) --output $(data_dir)/runs/$(campaign)/frozen-lake/naive/seed-$(seed).json
+output = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).out
+error = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).err
+log = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).log
+queue seed from (
+    21
+    42
+    87
+)
+
+job = frozen-lake-guarded
+arguments = -m rl_course.frozen_lake_mc --iterations 50 --episodes-per-iteration 100 --convergence-tolerance 0.5 --min-iterations 10 --seed $(seed) --output $(data_dir)/runs/$(campaign)/frozen-lake/guarded/seed-$(seed).json
+output = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).out
+error = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).err
+log = $(data_dir)/logs/$(job).$(ClusterId).$(ProcId).log
+queue seed from (
+    21
+    42
+    87
+)
+
+job = tic-tac-toe
+arguments = -m rl_course.tic_tac_toe --opponent $(opponent) --episodes 5000 --evaluation-episodes 100 --seed $(seed) --output $(data_dir)/runs/$(campaign)/tic-tac-toe/$(opponent)/seed-$(seed).json
+output = $(data_dir)/logs/$(job).$(opponent).$(seed).$(ClusterId).$(ProcId).out
+error = $(data_dir)/logs/$(job).$(opponent).$(seed).$(ClusterId).$(ProcId).err
+log = $(data_dir)/logs/$(job).$(opponent).$(seed).$(ClusterId).$(ProcId).log
+queue opponent, seed from (
+    policy1 21
+    policy1 42
+    policy1 87
+    policy2 21
+    policy2 42
+    policy2 87
+    policy3 21
+    policy3 42
+    policy3 87
+    policy4 21
+    policy4 42
+    policy4 87
+)
+

@@ -4,9 +4,10 @@ import numpy as np
 import torch
 
 from rl_course.blackjack import basic_policy, evaluate
+from rl_course.capture import capture_blackjack_policy, capture_mountain_car, capture_sysadmin
 from rl_course.frozen_lake_mc import first_visit_returns, monte_carlo_control
 from rl_course.neural_network import train
-from rl_course.racetrack import DQNAgent, state_key
+from rl_course.racetrack import DQNAgent, capture_episode, state_key
 from rl_course.sysadmin import CRASHED, DEFAULT_INSTANCE, SysadminEnv, compute_crash_probabilities
 from rl_course.tic_tac_toe import CROSS, EMPTY, TicTacToeEnv, game_result
 
@@ -27,8 +28,17 @@ class SmokeTests(unittest.TestCase):
         self.assertEqual(result["iterations_completed"], 2)
 
     def test_neural_network_learns(self):
-        result = train(steps=200, batch_size=32, seed=1)
+        result = train(steps=200, batch_size=32, seed=1, capture=True)
         self.assertLess(result["final_mse"], result["initial_mse"])
+        self.assertEqual(result["history"][0]["step"], 0)
+
+    def test_local_capture_shapes(self):
+        self.assertEqual(len(capture_blackjack_policy()["states"]), 200)
+        self.assertEqual(len(capture_mountain_car(seed=1, max_steps=5)["frames"]), 6)
+        self.assertEqual(
+            [len(item["frames"]) for item in capture_sysadmin(seed=1, horizon=2)["policies"]],
+            [3, 3],
+        )
 
     def test_sysadmin_probabilities_and_seed(self):
         state = np.array([CRASHED, 0, 0, 0, 0, 0], dtype=np.int8)
@@ -68,6 +78,21 @@ class SmokeTests(unittest.TestCase):
             self.assertTrue(torch.equal(online, target))
         loss = agent.observe(np.zeros(4), 0, 1.0, np.ones(4), True)
         self.assertGreaterEqual(loss, 0)
+
+        class OneStepAgent:
+            def act(self, state, epsilon):
+                return 4
+
+        class OneStepEnv:
+            def reset(self, seed=None):
+                return np.arange(15), {}
+
+            def step(self, action):
+                return np.arange(15) + 1, 100.0, True, False, {"is_success": True}
+
+        trajectory = capture_episode(OneStepAgent(), OneStepEnv(), seed=1)
+        self.assertEqual(trajectory["outcome"], "success")
+        self.assertEqual(len(trajectory["frames"]), 2)
 
 
 if __name__ == "__main__":

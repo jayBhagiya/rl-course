@@ -2,29 +2,25 @@
 
 These files target an HTCondor cluster. They use three seeds: 21, 42, and 87. All jobs currently request CPUs only. The Racetrack networks are small and environment interaction is sequential, so GPU transfer overhead is unlikely to help before profiling shows otherwise.
 
-## Paths
+## Configure paths
 
-Submit files assume:
+Before submitting, update these values in each `.sub` file:
 
-```text
-/path/to/rl-course
-/path/to/large-storage/rl-course
-```
-
-Update `project_dir` or `data_dir` in all `.sub` files if your checkout differs.
+- `project_dir`: absolute path to this repository checkout
+- `data_dir`: shared writable directory for environments, logs, and run outputs
 
 ## Create environment
 
 Run on `your submit machine`:
 
 ```console
-$ mkdir -p /path/to/large-storage/rl-course/logs
-$ cd /path/to/rl-course
+$ mkdir -p <data_dir>/logs
+$ cd <project_dir>
 $ condor_submit -batch-name rl-setup condor/setup.sub
 $ condor_q
 ```
 
-Wait for setup to finish successfully. It installs pinned `uv`, Python 3.10.16, and dependencies from `uv.lock` into `/path/to/large-storage/rl-course/venvs/rl-course-cpu`.
+Wait for setup to finish successfully. It installs pinned `uv`, Python 3.10.16, and dependencies from `uv.lock` into `<data_dir>/venvs/rl-course-cpu`.
 
 ## Submit campaigns
 
@@ -47,7 +43,13 @@ $ condor_q
 $ condor_q -hold
 ```
 
-Results are written below `/path/to/large-storage/rl-course/runs/`. Condor output, error, and event logs are written below `/path/to/large-storage/rl-course/logs/`.
+Results are written below `<data_dir>/runs/`. Condor output, error, and event logs are written below `<data_dir>/logs/`.
+
+To capture one trained DQN checkpoint and representative Racetrack trajectories for the website:
+
+```console
+$ condor_submit -batch-name rl-racetrack-artifacts condor/racetrack-artifacts.sub
+```
 
 ## Racetrack pilot
 

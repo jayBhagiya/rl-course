@@ -41,7 +41,30 @@ $ uv run python -m unittest discover -s tests -v
 
 Small demos and current Racetrack networks are CPU-friendly.
 
+## Visual captures
+
+Generate browser-ready JSON for the lightweight demos locally:
+
+```console
+$ uv run python -m rl_course.capture --output-dir artifacts/local
+```
+
+Racetrack DQN needs one training run because previous campaigns did not save the agent:
+
+```console
+$ condor_submit -batch-name rl-racetrack-artifacts condor/racetrack-artifacts.sub
+```
+
+The job writes `checkpoint.pt`, `trajectories.json`, `metrics.csv`, and `summary.json` below the `rl-artifacts` campaign directory.
+
+Export the lightweight Gym videos used by the website article after those captures are present:
+
+```console
+$ uv run python -m rl_course.media --output-dir artifacts/media
+```
+
+The exporter replays the saved actions and policies, verifies their states, and writes five H.264 MP4 files plus WebP posters. It requires `ffmpeg` on `PATH`.
+
 ## HTCondor
 
 Cluster setup, campaign submission, and result locations are documented in [condor/README.md](condor/README.md). Campaigns use three seeds: 21, 42, and 87.
-

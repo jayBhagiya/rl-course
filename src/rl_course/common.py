@@ -13,11 +13,14 @@ def positive_int(value: str) -> int:
     return number
 
 
-def emit_json(payload: dict[str, Any], output: str | Path | None = None) -> None:
+def write_json(payload: Any, output: str | Path) -> None:
     text = json.dumps(payload, indent=2, sort_keys=True)
-    print(text)
-    if output is not None:
-        path = Path(output)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text + "\n", encoding="utf-8")
+    path = Path(output)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text + "\n", encoding="utf-8")
 
+
+def emit_json(payload: dict[str, Any], output: str | Path | None = None) -> None:
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    if output is not None:
+        write_json(payload, output)

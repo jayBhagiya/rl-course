@@ -11,7 +11,7 @@ import torch
 from gymnasium.wrappers import FlattenObservation
 from torch import nn
 
-from rl_course.common import emit_json, positive_int
+from rl_course.common import emit_json, positive_int, write_json
 
 _REGISTERED = False
 
@@ -215,6 +215,93 @@ def evaluate(agent, env: gym.Env, episodes: int, seed: int) -> tuple[float, floa
     return float(np.mean(returns)), successes / episodes
 
 
+def capture_episode(agent, env: gym.Env, seed: int | None) -> dict:
+    state, _ = env.reset(seed=seed)
+    x, y, velocity_x, velocity_y = state_key(state)
+    frames = [
+        {
+            "step": 0,
+            "position": [x, y],
+            "velocity": [velocity_x, velocity_y],
+            "reward": 0.0,
+        }
+    ]
+    total_return = 0.0
+    step = 0
+    while True:
+        step += 1
+        action = agent.act(state, 0.0)
+        state, reward, terminated, truncated, info = env.step(action)
+        total_return += float(reward)
+        x, y, velocity_x, velocity_y = state_key(state)
+        frames.append(
+            {
+                "step": step,
+                "position": [x, y],
+                "velocity": [velocity_x, velocity_y],
+                "action": action,
+                "reward": float(reward),
+                "experienced_noise": bool(info.get("experienced_noise", False)),
+            }
+        )
+        if terminated or truncated:
+            success = bool(info.get("is_success", False))
+            outcome = "success" if success else ("timeout" if truncated else "crash")
+            return {"outcome": outcome, "total_return": total_return, "frames": frames}
+
+
+def capture_evaluation_trajectories(
+    agent,
+    env: gym.Env,
+    episodes: int,
+    seed: int,
+) -> dict:
+    track = env.unwrapped.racetrack_env.map
+    trajectories = {}
+    for episode in range(episodes):
+        trajectory = capture_episode(agent, env, seed if episode == 0 else None)
+        trajectories.setdefault(trajectory["outcome"], trajectory)
+        if "success" in trajectories and "crash" in trajectories:
+            break
+    return {
+        "seed": seed,
+        "episodes_searched": episode + 1,
+        "track": {
+            "height": track.height,
+            "width": track.width,
+            "rows": track.map,
+            "starts": [list(position) for position in track.starters],
+            "goals": [list(position) for position in track.goals],
+        },
+        "trajectories": trajectories,
+    }
+
+
+def save_dqn_artifacts(
+    agent: DQNAgent,
+    env: gym.Env,
+    output: Path,
+    seed: int,
+) -> None:
+    output.mkdir(parents=True, exist_ok=True)
+    torch.save(
+        {
+            "format_version": 1,
+            "algorithm": "dqn",
+            "seed": seed,
+            "state_size": agent.online.layers[0].in_features,
+            "num_actions": agent.num_actions,
+            "online_state_dict": agent.online.state_dict(),
+            "target_state_dict": agent.target.state_dict() if agent.target is not None else None,
+        },
+        output / "checkpoint.pt",
+    )
+    write_json(
+        capture_evaluation_trajectories(agent, env, episodes=100, seed=seed + 20_000),
+        output / "trajectories.json",
+    )
+
+
 def build_agent(
     algorithm: str,
     state_size: int,
@@ -253,7 +340,10 @@ def train(
     seed: int,
     device: str,
     rt_args: str,
+    artifact_dir: Path | None = None,
 ) -> tuple[dict, list[dict]]:
+    if artifact_dir is not None and algorithm != "dqn":
+        raise ValueError("artifact saving currently supports dqn only")
     if device == "auto":
         device = "cuda" if torch.cuda.is_available() else "cpu"
     if device == "cuda" and not torch.cuda.is_available():
@@ -303,6 +393,8 @@ def train(
                         "evaluation_success_rate": success_rate,
                     }
                 )
+        if artifact_dir is not None:
+            save_dqn_artifacts(agent, evaluation_env, artifact_dir, seed)
     finally:
         train_env.close()
         evaluation_env.close()
@@ -313,9 +405,17 @@ def train(
         "environment_steps": interactions,
         "seed": seed,
         "device": device,
+        "alpha": alpha,
+        "gamma": gamma,
+        "epsilon_start": epsilon_start,
+        "epsilon_end": epsilon_end,
+        "epsilon_decay": epsilon_decay,
+        "rt_args": rt_args,
         "final_evaluation_return": metrics[-1]["evaluation_return"],
         "final_evaluation_success_rate": metrics[-1]["evaluation_success_rate"],
     }
+    if artifact_dir is not None:
+        summary["artifacts"] = ["checkpoint.pt", "trajectories.json"]
     return summary, metrics
 
 
@@ -346,6 +446,7 @@ def main() -> None:
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="cpu")
     parser.add_argument("--rt-args", default="-sww -n -np 0.05")
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--save-artifacts", action="store_true")
     args = parser.parse_args()
     if not 0 < args.gamma <= 1:
         parser.error("--gamma must be in (0, 1]")
@@ -356,6 +457,9 @@ def main() -> None:
     alpha = args.alpha if args.alpha is not None else (0.05 if args.algorithm == "q-learning" else 0.0005)
     if alpha <= 0:
         parser.error("--alpha must be positive")
+    if args.save_artifacts and args.algorithm != "dqn":
+        parser.error("--save-artifacts currently supports --algorithm dqn only")
+    output = args.output or Path("outputs/racetrack") / f"{args.algorithm}-seed-{args.seed}"
     summary, metrics = train(
         args.algorithm,
         args.episodes,
@@ -369,8 +473,8 @@ def main() -> None:
         args.seed,
         args.device,
         args.rt_args,
+        output if args.save_artifacts else None,
     )
-    output = args.output or Path("outputs/racetrack") / f"{args.algorithm}-seed-{args.seed}"
     write_metrics(metrics, output / "metrics.csv")
     emit_json(summary, output / "summary.json")
 

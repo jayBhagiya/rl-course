@@ -4,7 +4,7 @@ campaign = rl-v2-full
 
 universe = docker
 docker_image = pytorch/pytorch:2.2.2-cuda11.8-cudnn8-runtime
-initialdir = /path/to/home
+initialdir = $(project_dir)
 executable = $(project_dir)/condor/run.sh
 environment = "PROJECT_DIR=$(project_dir) DATA_DIR=$(data_dir) VENV=$(data_dir)/venvs/rl-course-cpu OMP_NUM_THREADS=4"
 should_transfer_files = NO

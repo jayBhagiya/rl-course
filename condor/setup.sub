@@ -1,10 +1,10 @@
-# Create /path/to/large-storage/rl-course/logs before submitting this job.
+# Create this first: /path/to/large-storage/rl-course/logs
 project_dir = /path/to/rl-course
 data_dir = /path/to/large-storage/rl-course
 
 universe = docker
 docker_image = pytorch/pytorch:2.2.2-cuda11.8-cudnn8-runtime
-initialdir = /path/to/home
+initialdir = $(project_dir)
 executable = $(project_dir)/condor/run.sh
 arguments = setup
 environment = "PROJECT_DIR=$(project_dir) DATA_DIR=$(data_dir) VENV=$(data_dir)/venvs/rl-course-cpu"
